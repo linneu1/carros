@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carros: Floresta Mágica</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+        
+        * {
+            font-family: 'Fredoka', cursive, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: #0b1d13;
+            touch-action: manipulation;
+            overflow: hidden;
+        }
+
+        /* Glassmorphic elements */
+        .glass-panel {
+            background: rgba(15, 35, 23, 0.85);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(74, 222, 128, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-magic {
+            background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .btn-magic:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.6);
+        }
+
+        .btn-magic:active {
+            transform: translateY(1px);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Canvas container positioning */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            max-height: 840px;
+            margin: 0 auto;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Touch control buttons styling */
+        .touch-btn {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(5px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            active-background: rgba(255, 255, 255, 0.4);
+        }
+        .touch-btn:active {
+            background: rgba(34, 197, 94, 0.5);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-0 sm:p-4 text-white">
+
+    <div id="game-container" class="flex flex-col justify-between overflow-hidden relative rounded-2xl">
+        <!-- Main Game Canvas -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- UI Overlay Header (Score, Coins, Health, Level) -->
+        <div id="hud-overlay" class="absolute top-0 left-0 right-0 p-3 flex justify-between items-center pointer-events-none hidden">
+            <div class="flex items-center space-x-2 bg-black/60 px-3 py-1.5 rounded-full border border-green-500/30">
+                <i class="fas font-bold text-amber-400 fa-coins text-lg"></i>
+                <span id="hud-coins" class="font-bold text-amber-300 text-base">0</span>
+            </div>
+
+            <div class="flex flex-col items-center bg-black/60 px-4 py-1 rounded-2xl border border-green-500/30">
+                <span class="text-xs text-green-300 font-semibold tracking-wider">FASE</span>
+                <span id="hud-level" class="font-extrabold text-lg text-white">1/10</span>
+            </div>
+
+            <div class="flex items-center space-x-1 bg-black/60 px-3 py-1.5 rounded-full border border-green-500/30">
+                <i class="fas fa-heart text-red-500 text-lg"></i>
+                <span id="hud-lives" class="font-bold text-white text-base">3</span>
+            </div>
+        </div>
+
+        <!-- Progress Bar Overlay -->
+        <div id="hud-progress-container" class="absolute top-16 left-4 right-4 pointer-events-none hidden">
+            <div class="w-full bg-black/60 rounded-full h-3 p-0.5 border border-green-500/30">
+                <div id="hud-progress-bar" class="bg-gradient-to-r from-yellow-400 to-green-400 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-green-300 font-bold px-1 mt-0.5">
+                <span>PROGRESSO</span>
+                <span id="hud-goal-text">0/15</span>
+            </div>
+        </div>
+
+        <!-- Touch Controls for Mobile/Tablets -->
+        <div id="mobile-controls" class="absolute bottom-4 left-0 right-0 px-6 flex justify-between pointer-events-auto sm:hidden hidden z-10">
+            <button id="btn-left" class="touch-btn w-20 h-20 rounded-full flex items-center justify-center text-3xl text-white shadow-lg active:scale-95 transition-transform">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <button id="btn-right" class="touch-btn w-20 h-20 rounded-full flex items-center justify-center text-3xl text-white shadow-lg active:scale-95 transition-transform">
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+
+        <!-- SCREEN 1: START MENU -->
+        <div id="screen-start" class="absolute inset-0 flex flex-col items-center justify-between p-6 glass-panel z-20">
+            <div class="text-center mt-6">
+                <div class="inline-block p-3 rounded-full bg-green-500/20 mb-2 border border-green-400/40 animate-pulse">
+                    <i class="fas fa-car-side text-4xl text-yellow-400"></i>
+                </div>
+                <h1 class="text-4xl font-extrabold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-green-300 to-emerald-400 uppercase drop-shadow">
+                    Carros
+                </h1>
+                <p class="text-sm text-green-200 mt-1 font-semibold">A Floresta Mágica</p>
+            </div>
+
+            <!-- Car Preview in Menu -->
+            <div class="my-4 relative flex items-center justify-center">
+                <div class="w-36 h-36 rounded-full bg-gradient-to-b from-emerald-600/30 to-green-950/60 flex items-center justify-center border border-green-400/30 shadow-inner">
+                    <canvas id="menuCarCanvas" width="120" height="120"></canvas>
+                </div>
+            </div>
+
+            <div class="w-full space-y-3 mb-6">
+                <button id="btn-play" class="btn-magic w-full py-3.5 rounded-xl font-extrabold text-lg tracking-wider text-white flex items-center justify-center space-x-2">
+                    <i class="fas fa-play"></i>
+                    <span>JOGAR AGORA</span>
+                </button>
+                
+                <button id="btn-shop" class="btn-secondary w-full py-3.5 rounded-xl font-extrabold text-lg tracking-wider text-white flex items-center justify-center space-x-2">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>GARAGEM & LOJA</span>
+                </button>
+
+                <!-- Audio Toggle -->
+                <button id="btn-audio-toggle" class="w-full py-2 bg-black/40 border border-white/10 rounded-xl text-xs font-semibold text-gray-300 flex items-center justify-center space-x-2">
+                    <i id="audio-icon" class="fas fa-volume-up"></i>
+                    <span id="audio-text">Som: Ligado</span>
+                </button>
+            </div>
+
+            <div class="text-xs text-center text-green-300/70">
+                Use Setas ou A/D para controlar.
+            </div>
+        </div>
+
+        <!-- SCREEN 2: GARAGE / SHOP -->
+        <div id="screen-shop" class="absolute inset-0 flex flex-col justify-between p-5 glass-panel z-20 hidden">
+            <div class="flex justify-between items-center border-b border-green-500/30 pb-3">
+                <h2 class="text-2xl font-bold text-yellow-300 flex items-center gap-2">
+                    <i class="fas fa-warehouse"></i> Garagem
+                </h2>
+                <div class="flex items-center space-x-2 bg-black/60 px-3 py-1 rounded-full border border-amber-400/40">
+                    <i class="fas fa-coins text-amber-400"></i>
+                    <span id="shop-coins" class="font-bold text-amber-300">0</span>
+                </div>
+            </div>
+
+            <!-- Preview Display -->
+            <div class="flex flex-col items-center justify-center my-2">
+                <div class="w-32 h-32 rounded-2xl bg-black/40 border border-green-500/30 flex items-center justify-center shadow-lg relative">
+                    <canvas id="shopCarCanvas" width="100" height="100"></canvas>
+                </div>
+                <p id="shop-item-name" class="font-bold text-base mt-2 text-green-200">Carro Amarelo Clássico</p>
+            </div>
+
+            <!-- Shop Tabs -->
+            <div class="flex border-b border-green-500/20 mb-2">
+                <button id="tab-colors" class="flex-1 py-1.5 font-bold text-sm text-yellow-400 border-b-2 border-yellow-400">Cores</button>
+                <button id="tab-wheels" class="flex-1 py-1.5 font-bold text-sm text-gray-400 border-b-2 border-transparent">Rodas</button>
+            </div>
+
+            <!-- Items List Container -->
+            <div id="shop-items-container" class="flex-1 overflow-y-auto space-y-2 pr-1 max-h-48 my-1">
+                <!-- Items populated via JS -->
+            </div>
+
+            <button id="btn-back-shop" class="w-full py-3 mt-2 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold text-white text-center">
+                <i class="fas fa-arrow-left mr-2"></i> Voltar ao Menu
+            </button>
+        </div>
+
+        <!-- SCREEN 3: LEVEL COMPLETE -->
+        <div id="screen-level-win" class="absolute inset-0 flex flex-col items-center justify-center p-6 glass-panel z-20 hidden text-center">
+            <div class="w-20 h-20 bg-yellow-400/20 rounded-full flex items-center justify-center border-2 border-yellow-400 mb-4 animate-bounce">
+                <i class="fas fa-trophy text-4xl text-yellow-300"></i>
+            </div>
+            <h2 class="text-3xl font-extrabold text-green-300">FASE CONCLUÍDA!</h2>
+            <p id="win-level-title" class="text-sm text-green-100 mt-1">Você superou os desafios da floresta!</p>
+
+            <div class="my-6 bg-black/50 p-4 rounded-xl border border-green-500/30 w-full space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-300">Moedas Coletadas:</span>
+                    <span id="win-coins-gained" class="font-bold text-amber-300">+0</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-300">Bônus de Fase:</span>
+                    <span id="win-bonus-coins" class="font-bold text-amber-300">+50</span>
+                </div>
+            </div>
+
+            <button id="btn-next-level" class="btn-magic w-full py-3.5 rounded-xl font-extrabold text-lg text-white">
+                PRÓXIMA FASE <i class="fas fa-forward ml-2"></i>
+            </button>
+        </div>
+
+        <!-- SCREEN 4: GAME OVER -->
+        <div id="screen-game-over" class="absolute inset-0 flex flex-col items-center justify-center p-6 glass-panel z-20 hidden text-center">
+            <div class="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center border-2 border-red-500 mb-4">
+                <i class="fas fa-car-crash text-4xl text-red-400"></i>
+            </div>
+            <h2 class="text-3xl font-extrabold text-red-400">FIM DE JOGO</h2>
+            <p class="text-sm text-gray-300 mt-1">Seu carro quebrou na floresta encantada.</p>
+
+            <div class="my-6 bg-black/50 p-4 rounded-xl border border-red-500/30 w-full space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-300">Fase Alcançada:</span>
+                    <span id="gameover-level" class="font-bold text-white">1</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-300">Moedas Coletadas:</span>
+                    <span id="gameover-coins" class="font-bold text-amber-300">0</span>
+                </div>
+            </div>
+
+            <button id="btn-restart" class="btn-magic w-full py-3.5 rounded-xl font-extrabold text-lg text-white mb-2">
+                TENTAR NOVAMENTE <i class="fas fa-redo ml-2"></i>
+            </button>
+            <button id="btn-menu-gameover" class="w-full py-2.5 bg-gray-700/80 hover:bg-gray-600 rounded-xl font-bold text-sm text-white">
+                Menu Principal
+            </button>
+        </div>
+
+        <!-- SCREEN 5: GAME VICTORY (10 LEVELS COMPLETE) -->
+        <div id="screen-victory" class="absolute inset-0 flex flex-col items-center justify-center p-6 glass-panel z-20 hidden text-center">
+            <div class="w-24 h-24 bg-yellow-400/30 rounded-full flex items-center justify-center border-4 border-yellow-300 mb-4 animate-pulse">
+                <i class="fas fa-crown text-5xl text-yellow-300"></i>
+            </div>
+            <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-200 to-yellow-400">
+                PARABÉNS!
+            </h2>
+            <p class="text-base text-green-200 font-bold mt-1">Você Mestre da Floresta Mágica!</p>
+            <p class="text-xs text-gray-300 mt-2">Completou todas as 10 fases e dominou a floresta com seu carro super customizado!</p>
+
+            <button id="btn-victory-restart" class="btn-magic w-full py-3.5 rounded-xl font-extrabold text-lg text-white mt-8">
+                JOGAR NOVAMENTE <i class="fas fa-redo ml-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /* --- AUDIO SYNTHESIZER (Web Audio API) --- */
+        class SoundController {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        this.ctx = new AudioContext();
+                    }
+                }
+            }
+
+            playCoin() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1400, this.ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playItem() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+                osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.08); // E5
+                osc.frequency.setValueAtTime(783.99, this.ctx.currentTime + 0.16); // G5
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playHit() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playWin() {
+                if (!this.enabled || !this.ctx) return;
+                const notes = [440, 554.37, 659.25, 880];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.1 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.1);
+                    osc.stop(this.ctx.currentTime + idx * 0.1 + 0.2);
+                });
+            }
+        }
+
+        const sound = new SoundController();
+
+        /* --- SHOP CATALOG DATA --- */
+        const CAR_COLORS = [
+            { id: 'yellow', name: 'Amarelo Mágico', hex: '#facc15', roof: '#ca8a04', price: 0, unlocked: true },
+            { id: 'red', name: 'Vermelho Rubino', hex: '#ef4444', roof: '#b91c1c', price: 50, unlocked: false },
+            { id: 'blue', name: 'Azul Encantado', hex: '#3b82f6', roof: '#1d4ed8', price: 100, unlocked: false },
+            { id: 'purple', name: 'Roxo Místico', hex: '#a855f7', roof: '#7e22ce', price: 150, unlocked: false },
+            { id: 'gold', name: 'Dourado Celestial', hex: '#fbbf24', roof: '#d97706', price: 250, unlocked: false },
+            { id: 'neon', name: 'Verde Neon', hex: '#22c55e', roof: '#15803d', price: 400, unlocked: false }
+        ];
+
+        const CAR_WHEELS = [
+            { id: 'standard', name: 'Rodas Padrão', color: '#1e293b', rim: '#94a3b8', size: 1, price: 0, unlocked: true },
+            { id: 'sport', name: 'Rodas Esportivas', color: '#0f172a', rim: '#f43f5e', size: 1.1, price: 60, unlocked: false },
+            { id: 'big', name: 'Rodas Gigantes', color: '#334155', rim: '#eab308', size: 1.3, price: 120, unlocked: false },
+            { id: 'magic', name: 'Rodas Brilhantes', color: '#581c87', rim: '#38bdf8', size: 1.2, price: 200, unlocked: false }
+        ];
+
+        /* --- LEVEL DATA --- */
+        const LEVEL_CONFIGS = [
+            { level: 1, speed: 4, goalItems: 10, obstacleFreq: 0.015, itemFreq: 0.035, bgTint: '#0b1d13' },
+            { level: 2, speed: 4.5, goalItems: 12, obstacleFreq: 0.018, itemFreq: 0.035, bgTint: '#0d2217' },
+            { level: 3, speed: 5, goalItems: 15, obstacleFreq: 0.020, itemFreq: 0.032, bgTint: '#10281b' },
+            { level: 4, speed: 5.5, goalItems: 18, obstacleFreq: 0.022, itemFreq: 0.032, bgTint: '#092419' },
+            { level: 5, speed: 6, goalItems: 20, obstacleFreq: 0.025, itemFreq: 0.030, bgTint: '#112229' },
+            { level: 6, speed: 6.5, goalItems: 22, obstacleFreq: 0.027, itemFreq: 0.030, bgTint: '#1c1c2b' },
+            { level: 7, speed: 7, goalItems: 25, obstacleFreq: 0.029, itemFreq: 0.028, bgTint: '#23182b' },
+            { level: 8, speed: 7.5, goalItems: 28, obstacleFreq: 0.031, itemFreq: 0.028, bgTint: '#23121d' },
+            { level: 9, speed: 8, goalItems: 30, obstacleFreq: 0.033, itemFreq: 0.026, bgTint: '#1a0d24' },
+            { level: 10, speed: 9, goalItems: 35, obstacleFreq: 0.036, itemFreq: 0.025, bgTint: '#08170e' }
+        ];
+
+        /* --- GAME ENGINE & STATE --- */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let animationFrameId = null;
+        let gameState = 'START'; // START, PLAYING, SHOP, WIN_LEVEL, GAME_OVER, VICTORY
+
+        // Player Data & Customization
+        let totalCoins = 0;
+        let selectedColor = CAR_COLORS[0];
+        let selectedWheel = CAR_WHEELS[0];
+
+        // Current Run Variables
+        let currentLevelIndex = 0;
+        let playerLives = 3;
+        let levelItemsCollected = 0;
+        let roadOffset = 0;
+
+        // Key states
+        const keys = { left: false, right: false };
+
+        // Entities
+        let playerCar = {
+            x: 0,
+            y: 0,
+            width: 44,
+            height: 76,
+            speed: 6,
+            targetX: 0
+        };
+
+        let obstacles = [];
+        let collectibles = [];
+        let particles = [];
+        let fireflies = [];
+
+        // Resize Canvas to Container
+        function resizeCanvas() {
+            const container = document.getElementById('game-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            if (playerCar) {
+                playerCar.y = canvas.height - 120;
+                if (gameState === 'START') {
+                    playerCar.x = canvas.width / 2 - playerCar.width / 2;
+                }
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // Load Save State
+        function loadSaveData() {
+            try {
+                const savedData = localStorage.getItem('carros_floresta_save');
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    totalCoins = data.coins || 0;
+                    if (data.unlockedColors) {
+                        data.unlockedColors.forEach(id => {
+                            const c = CAR_COLORS.find(item => item.id === id);
+                            if (c) c.unlocked = true;
+                        });
+                    }
+                    if (data.unlockedWheels) {
+                        data.unlockedWheels.forEach(id => {
+                            const w = CAR_WHEELS.find(item => item.id === id);
+                            if (w) w.unlocked = true;
+                        });
+                    }
+                    if (data.selectedColor) {
+                        const c = CAR_COLORS.find(item => item.id === data.selectedColor);
+                        if (c) selectedColor = c;
+                    }
+                    if (data.selectedWheel) {
+                        const w = CAR_WHEELS.find(item => item.id === data.selectedWheel);
+                        if (w) selectedWheel = w;
+                    }
+                }
+            } catch(e) {
+                console.warn('Could not load save data', e);
+            }
+        }
+
+        function saveData() {
+            try {
+                const data = {
+                    coins: totalCoins,
+                    unlockedColors: CAR_COLORS.filter(c => c.unlocked).map(c => c.id),
+                    unlockedWheels: CAR_WHEELS.filter(w => w.unlocked).map(w => w.id),
+                    selectedColor: selectedColor.id,
+                    selectedWheel: selectedWheel.id
+                };
+                localStorage.setItem('carros_floresta_save', JSON.stringify(data));
+            } catch(e) {
+                console.warn('Could not save data', e);
+            }
+        }
+
+        // Initialize Ambient Fireflies
+        function initFireflies() {
+            fireflies = [];
+            for (let i = 0; i < 25; i++) {
+                fireflies.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 2 + 1,
+                    alpha: Math.random(),
+                    speedX: (Math.random() - 0.5) * 0.8,
+                    speedY: (Math.random() - 0.5) * 0.8,
+                    pulse: Math.random() * 0.05 + 0.01
+                });
+            }
+        }
+
+        /* --- CAR RENDER FUNCTION --- */
+        function drawCar(targetCtx, x, y, width, height, colorObj, wheelObj) {
+            targetCtx.save();
+            targetCtx.translate(x + width / 2, y + height / 2);
+
+            // Wheel details
+            const wWidth = 8 * wheelObj.size;
+            const wHeight = 16 * wheelObj.size;
+
+            // Draw Wheels
+            targetCtx.fillStyle = wheelObj.color;
+            // Top Left Wheel
+            targetCtx.fillRect(-width / 2 - 2, -height / 2 + 8, wWidth, wHeight);
+            // Top Right Wheel
+            targetCtx.fillRect(width / 2 - wWidth + 2, -height / 2 + 8, wWidth, wHeight);
+            // Bottom Left Wheel
+            targetCtx.fillRect(-width / 2 - 2, height / 2 - 24, wWidth, wHeight);
+            // Bottom Right Wheel
+            targetCtx.fillRect(width / 2 - wWidth + 2, height / 2 - 24, wWidth, wHeight);
+
+            // Rims accent
+            targetCtx.fillStyle = wheelObj.rim;
+            targetCtx.fillRect(-width / 2, -height / 2 + 12, wWidth - 4, wHeight - 8);
+            targetCtx.fillRect(width / 2 - wWidth + 4, -height / 2 + 12, wWidth - 4, wHeight - 8);
+            targetCtx.fillRect(-width / 2, height / 2 - 20, wWidth - 4, wHeight - 8);
+            targetCtx.fillRect(width / 2 - wWidth + 4, height / 2 - 20, wWidth - 4, wHeight - 8);
+
+            // Car Body Shadow
+            targetCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            targetCtx.beginPath();
+            targetCtx.roundRect(-width / 2 + 2, -height / 2 + 4, width - 4, height, 10);
+            targetCtx.fill();
+
+            // Main Body Base
+            targetCtx.fillStyle = colorObj.hex;
+            targetCtx.beginPath();
+            targetCtx.roundRect(-width / 2, -height / 2, width, height - 6, 12);
+            targetCtx.fill();
+
+            // Hood lines / details
+            targetCtx.fillStyle = colorObj.roof;
+            targetCtx.beginPath();
+            targetCtx.roundRect(-width / 2 + 4, -height / 2 + 4, width - 8, 18, 6);
+            targetCtx.fill();
+
+            // Windshield
+            targetCtx.fillStyle = '#38bdf8'; // Sky blue glass
+            targetCtx.beginPath();
+            targetCtx.roundRect(-width / 2 + 6, -height / 2 + 24, width - 12, 14, 4);
+            targetCtx.fill();
+
+            // Roof
+            targetCtx.fillStyle = colorObj.roof;
+            targetCtx.beginPath();
+            targetCtx.roundRect(-width / 2 + 5, -height / 2 + 40, width - 10, 20, 4);
+            targetCtx.fill();
+
+            // Rear Window
+            targetCtx.fillStyle = '#0284c7';
+            targetCtx.beginPath();
+            targetCtx.roundRect(-width / 2 + 7, -height / 2 + 62, width - 14, 6, 2);
+            targetCtx.fill();
+
+            // Headlights (Magic Glow)
+            targetCtx.fillStyle = '#fef08a';
+            targetCtx.beginPath();
+            targetCtx.arc(-width / 3, -height / 2 + 3, 4, 0, Math.PI * 2);
+            targetCtx.arc(width / 3, -height / 2 + 3, 4, 0, Math.PI * 2);
+            targetCtx.fill();
+
+            // Headlight beams
+            if (gameState === 'PLAYING') {
+                const beamGradient = targetCtx.createLinearGradient(0, -height / 2, 0, -height / 2 - 60);
+                beamGradient.addColorStop(0, 'rgba(254, 240, 138, 0.4)');
+                beamGradient.addColorStop(1, 'rgba(254, 240, 138, 0)');
+                targetCtx.fillStyle = beamGradient;
+                targetCtx.beginPath();
+                targetCtx.moveTo(-width / 2, -height / 2);
+                targetCtx.lineTo(-width, -height / 2 - 60);
+                targetCtx.lineTo(width, -height / 2 - 60);
+                targetCtx.lineTo(width / 2, -height / 2);
+                targetCtx.closePath();
+                targetCtx.fill();
+            }
+
+            targetCtx.restore();
+        }
+
+        /* --- GAME LOGIC & RENDERING --- */
+
+        function startNewGame() {
+            currentLevelIndex = 0;
+            totalCoins = totalCoins || 0;
+            startLevel(currentLevelIndex);
+        }
+
+        function startLevel(index) {
+            currentLevelIndex = index;
+            playerLives = 3;
+            levelItemsCollected = 0;
+            obstacles = [];
+            collectibles = [];
+            particles = [];
+            
+            playerCar.x = canvas.width / 2 - playerCar.width / 2;
+            playerCar.y = canvas.height - 130;
+
+            updateHUD();
+            gameState = 'PLAYING';
+
+            document.getElementById('hud-overlay').classList.remove('hidden');
+            document.getElementById('hud-progress-container').classList.remove('hidden');
+            document.getElementById('mobile-controls').classList.remove('hidden');
+
+            hideAllScreens();
+        }
+
+        function hideAllScreens() {
+            document.getElementById('screen-start').classList.add('hidden');
+            document.getElementById('screen-shop').classList.add('hidden');
+            document.getElementById('screen-level-win').classList.add('hidden');
+            document.getElementById('screen-game-over').classList.add('hidden');
+            document.getElementById('screen-victory').classList.add('hidden');
+        }
+
+        function updateHUD() {
+            const config = LEVEL_CONFIGS[currentLevelIndex];
+            document.getElementById('hud-coins').innerText = totalCoins;
+            document.getElementById('hud-level').innerText = `${currentLevelIndex + 1}/10`;
+            document.getElementById('hud-lives').innerText = playerLives;
+
+            const progressPct = Math.min(100, (levelItemsCollected / config.goalItems) * 100);
+            document.getElementById('hud-progress-bar').style.width = `${progressPct}%`;
+            document.getElementById('hud-goal-text').innerText = `${levelItemsCollected}/${config.goalItems}`;
+        }
+
+        // Spawn Obstacles (Logs, Magic Rocks, Giant Mushrooms)
+        function spawnObstacle() {
+            const roadWidth = canvas.width * 0.65;
+            const roadLeft = (canvas.width - roadWidth) / 2;
+            
+            const types = ['LOG', 'MAGIC_ROCK', 'MUSHROOM'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            const size = 36 + Math.random() * 10;
+
+            obstacles.push({
+                type: type,
+                x: roadLeft + Math.random() * (roadWidth - size),
+                y: -60,
+                width: size,
+                height: size,
+                rotation: Math.random() * Math.PI * 2
+            });
+        }
+
+        // Spawn Collectibles (Stars, Potions, Coins)
+        function spawnCollectible() {
+            const roadWidth = canvas.width * 0.65;
+            const roadLeft = (canvas.width - roadWidth) / 2;
+
+            const types = ['STAR', 'COIN', 'POTION'];
+            const rand = Math.random();
+            let type = 'STAR';
+            if (rand < 0.5) type = 'STAR';
+            else if (rand < 0.85) type = 'COIN';
+            else type = 'POTION';
+
+            collectibles.push({
+                type: type,
+                x: roadLeft + Math.random() * (roadWidth - 30),
+                y: -50,
+                width: 28,
+                height: 28,
+                bounce: 0
+            });
+        }
+
+        // Add Particle Effects
+        function createParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    radius: Math.random() * 4 + 2,
+                    color: color,
+                    alpha: 1,
+                    life: 1
+                });
+            }
+        }
+
+        // Main Loop Update
+        function update() {
+            const config = LEVEL_CONFIGS[currentLevelIndex];
+
+            // Road animation
+            roadOffset += config.speed;
+            if (roadOffset >= 40) roadOffset = 0;
+
+            // Player movement
+            if (keys.left) {
+                playerCar.x -= playerCar.speed;
+            }
+            if (keys.right) {
+                playerCar.x += playerCar.speed;
+            }
+
+            // Road Bounds Check
+            const roadWidth = canvas.width * 0.68;
+            const roadLeft = (canvas.width - roadWidth) / 2;
+            const roadRight = roadLeft + roadWidth;
+
+            if (playerCar.x < roadLeft) playerCar.x = roadLeft;
+            if (playerCar.x + playerCar.width > roadRight) playerCar.x = roadRight - playerCar.width;
+
+            // Spawner Logic
+            if (Math.random() < config.obstacleFreq) {
+                spawnObstacle();
+            }
+            if (Math.random() < config.itemFreq) {
+                spawnCollectible();
+            }
+
+            // Update Obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                obs.y += config.speed;
+
+                // Collision Detection with Player Car
+                if (
+                    playerCar.x < obs.x + obs.width &&
+                    playerCar.x + playerCar.width > obs.x &&
+                    playerCar.y < obs.y + obs.height &&
+                    playerCar.y + playerCar.height > obs.y
+                ) {
+                    // Collision action
+                    sound.playHit();
+                    createParticles(obs.x + obs.width / 2, obs.y + obs.height / 2, '#ef4444', 12);
+                    playerLives--;
+                    updateHUD();
+
+                    obstacles.splice(i, 1);
+
+                    if (playerLives <= 0) {
+                        handleGameOver();
+                        return;
+                    }
+                    continue;
+                }
+
+                // Remove off screen
+                if (obs.y > canvas.height + 60) {
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            // Update Collectibles
+            for (let i = collectibles.length - 1; i >= 0; i--) {
+                const item = collectibles[i];
+                item.y += config.speed;
+                item.bounce += 0.08;
+
+                // Collision Detection
+                if (
+                    playerCar.x < item.x + item.width &&
+                    playerCar.x + playerCar.width > item.x &&
+                    playerCar.y < item.y + item.height &&
+                    playerCar.y + playerCar.height > item.y
+                ) {
+                    if (item.type === 'COIN') {
+                        totalCoins += 5;
+                        sound.playCoin();
+                        createParticles(item.x, item.y, '#facc15', 8);
+                    } else if (item.type === 'STAR') {
+                        levelItemsCollected++;
+                        totalCoins += 2;
+                        sound.playItem();
+                        createParticles(item.x, item.y, '#a855f7', 10);
+                    } else if (item.type === 'POTION') {
+                        if (playerLives < 3) playerLives++;
+                        sound.playItem();
+                        createParticles(item.x, item.y, '#22c55e', 12);
+                    }
+
+                    saveData();
+                    updateHUD();
+
+                    // Level Victory check
+                    if (levelItemsCollected >= config.goalItems) {
+                        handleLevelWin();
+                        return;
+                    }
+
+                    collectibles.splice(i, 1);
+                    continue;
+                }
+
+                // Remove off screen
+                if (item.y > canvas.height + 50) {
+                    collectibles.splice(i, 1);
+                }
+            }
+
+            // Particles Update
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.03;
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Ambient Fireflies Update
+            fireflies.forEach(f => {
+                f.x += f.speedX;
+                f.y += f.speedY;
+                f.alpha += f.pulse;
+                if (f.alpha > 1 || f.alpha < 0.2) f.pulse = -f.pulse;
+
+                if (f.x < 0) f.x = canvas.width;
+                if (f.x > canvas.width) f.x = 0;
+                if (f.y < 0) f.y = canvas.height;
+                if (f.y > canvas.height) f.y = 0;
+            });
+        }
+
+        /* --- DRAWING ROUTINES --- */
+
+        function drawEnchantedForestBackground() {
+            const config = LEVEL_CONFIGS[currentLevelIndex] || LEVEL_CONFIGS[0];
+
+            // Deep Magical Forest Background Gradient
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bgGrad.addColorStop(0, config.bgTint);
+            bgGrad.addColorStop(1, '#020b06');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Forest Trees on Borders
+            const roadWidth = canvas.width * 0.68;
+            const roadLeft = (canvas.width - roadWidth) / 2;
+
+            ctx.fillStyle = '#052e16'; // Dark tree silhouettes
+            for (let y = -40 + (roadOffset % 40); y < canvas.height; y += 40) {
+                // Left Forest Trees
+                ctx.beginPath();
+                ctx.arc(roadLeft - 30, y, 28, 0, Math.PI * 2);
+                ctx.arc(roadLeft - 50, y + 10, 22, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Right Forest Trees
+                ctx.beginPath();
+                ctx.arc(roadLeft + roadWidth + 30, y, 28, 0, Math.PI * 2);
+                ctx.arc(roadLeft + roadWidth + 50, y + 10, 22, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Enchanted Road (Cobblestone / Dirt Path)
+            ctx.fillStyle = '#1e3a2b';
+            ctx.fillRect(roadLeft, 0, roadWidth, canvas.height);
+
+            // Road Borders (Glowing Magic Runes / Vines)
+            ctx.strokeStyle = '#4ade80';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(roadLeft, 0);
+            ctx.lineTo(roadLeft, canvas.height);
+            ctx.moveTo(roadLeft + roadWidth, 0);
+            ctx.lineTo(roadLeft + roadWidth, canvas.height);
+            ctx.stroke();
+
+            // Animated Center Road Dash Lines (Glowing yellow/green)
+            ctx.strokeStyle = 'rgba(250, 204, 21, 0.6)';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([20, 20]);
+            ctx.lineDashOffset = -roadOffset;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
+
+            // Draw Glowing Fireflies
+            fireflies.forEach(f => {
+                ctx.save();
+                ctx.globalAlpha = f.alpha;
+                ctx.fillStyle = '#fef08a';
+                ctx.shadowColor = '#86efac';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(f.x, f.y, f.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        function drawObstacles() {
+            obstacles.forEach(obs => {
+                ctx.save();
+                ctx.translate(obs.x + obs.width / 2, obs.y + obs.height / 2);
+
+                if (obs.type === 'LOG') {
+                    // Tree Trunk Log
+                    ctx.fillStyle = '#78350f';
+                    ctx.beginPath();
+                    ctx.roundRect(-obs.width / 2, -obs.height / 2, obs.width, obs.height, 6);
+                    ctx.fill();
+                    // Wood Rings
+                    ctx.strokeStyle = '#92400e';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(-obs.width / 2 + 4, -obs.height / 2 + 4, obs.width - 8, obs.height - 8);
+                } else if (obs.type === 'MAGIC_ROCK') {
+                    // Glowing Purple Magic Rock
+                    ctx.fillStyle = '#581c87';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -obs.height / 2);
+                    ctx.lineTo(obs.width / 2, -obs.height / 4);
+                    ctx.lineTo(obs.width / 2 - 4, obs.height / 2);
+                    ctx.lineTo(-obs.width / 2 + 4, obs.height / 2);
+                    ctx.lineTo(-obs.width / 2, -obs.height / 4);
+                    ctx.closePath();
+                    ctx.fill();
+                    // Inner Rune
+                    ctx.strokeStyle = '#c084fc';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                } else if (obs.type === 'MUSHROOM') {
+                    // Giant Red Mushroom Cap
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, obs.width / 2, Math.PI, 0);
+                    ctx.fill();
+                    // White Spots
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(-obs.width / 4, -obs.height / 4, 3, 0, Math.PI * 2);
+                    ctx.arc(obs.width / 4, -obs.height / 4, 3, 0, Math.PI * 2);
+                    ctx.arc(0, -obs.height / 3, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Stem
+                    ctx.fillStyle = '#fef3c7';
+                    ctx.fillRect(-obs.width / 6, 0, obs.width / 3, obs.height / 2);
+                }
+
+                ctx.restore();
+            });
+        }
+
+        function drawCollectibles() {
+            collectibles.forEach(item => {
+                ctx.save();
+                const bounceY = item.y + Math.sin(item.bounce) * 4;
+                ctx.translate(item.x + item.width / 2, bounceY + item.height / 2);
+
+                if (item.type === 'STAR') {
+                    // Glowing Magic Star
+                    ctx.fillStyle = '#eab308';
+                    ctx.shadowColor = '#fde047';
+                    ctx.shadowBlur = 12;
+                    ctx.beginPath();
+                    for (let i = 0; i < 5; i++) {
+                        ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * 14, -Math.sin((18 + i * 72) * Math.PI / 180) * 14);
+                        ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * 6, -Math.sin((54 + i * 72) * Math.PI / 180) * 6);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (item.type === 'COIN') {
+                    // Gold Coin
+                    ctx.fillStyle = '#facc15';
+                    ctx.shadowColor = '#eab308';
+                    ctx.shadowBlur = 8;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#ca8a04';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.fillStyle = '#854d0e';
+                    ctx.font = 'bold 12px Fredoka';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('$', 0, 1);
+                } else if (item.type === 'POTION') {
+                    // Life Potion
+                    ctx.fillStyle = '#22c55e';
+                    ctx.shadowColor = '#4ade80';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.arc(0, 4, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.fillRect(-3, -10, 6, 6);
+                }
+
+                ctx.restore();
+            });
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        // Main Render Loop
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawEnchantedForestBackground();
+
+            if (gameState === 'PLAYING') {
+                update();
+                drawObstacles();
+                drawCollectibles();
+                drawParticles();
+                drawCar(ctx, playerCar.x, playerCar.y, playerCar.width, playerCar.height, selectedColor, selectedWheel);
+            } else if (gameState === 'START') {
+                // Background animation in main menu
+                roadOffset += 1.5;
+                if (roadOffset >= 40) roadOffset = 0;
+            }
+
+            animationFrameId = requestAnimationFrame(render);
+        }
+
+        /* --- STATE HANDLERS --- */
+
+        function handleLevelWin() {
+            gameState = 'WIN_LEVEL';
+            sound.playWin();
+
+            const bonus = 50 + (currentLevelIndex * 10);
+            totalCoins += bonus;
+            saveData();
+
+            document.getElementById('hud-overlay').classList.add('hidden');
+            document.getElementById('hud-progress-container').classList.add('hidden');
+            document.getElementById('mobile-controls').classList.add('hidden');
+
+            document.getElementById('win-coins-gained').innerText = `+${levelItemsCollected * 2}`;
+            document.getElementById('win-bonus-coins').innerText = `+${bonus}`;
+            document.getElementById('win-level-title').innerText = `Fase ${currentLevelIndex + 1} Concluída!`;
+
+            document.getElementById('screen-level-win').classList.remove('hidden');
+        }
+
+        function handleGameOver() {
+            gameState = 'GAME_OVER';
+
+            document.getElementById('hud-overlay').classList.add('hidden');
+            document.getElementById('hud-progress-container').classList.add('hidden');
+            document.getElementById('mobile-controls').classList.add('hidden');
+
+            document.getElementById('gameover-level').innerText = `${currentLevelIndex + 1}`;
+            document.getElementById('gameover-coins').innerText = `${totalCoins}`;
+
+            document.getElementById('screen-game-over').classList.remove('hidden');
+        }
+
+        /* --- SHOP MANAGEMENT --- */
+
+        let activeShopTab = 'colors';
+
+        function renderShopItems() {
+            const container = document.getElementById('shop-items-container');
+            container.innerHTML = '';
+            document.getElementById('shop-coins').innerText = totalCoins;
+
+            const items = activeShopTab === 'colors' ? CAR_COLORS : CAR_WHEELS;
+
+            items.forEach(item => {
+                const isSelected = activeShopTab === 'colors' ? selectedColor.id === item.id : selectedWheel.id === item.id;
+
+                const card = document.createElement('div');
+                card.className = `flex items-center justify-between p-3 rounded-xl border transition-all ${
+                    isSelected ? 'bg-green-600/30 border-green-400' : 'bg-black/40 border-green-500/20 hover:bg-black/60'
+                }`;
+
+                let buttonHTML = '';
+                if (item.unlocked) {
+                    if (isSelected) {
+                        buttonHTML = `<span class="px-3 py-1 bg-green-500 text-black text-xs font-bold rounded-full">EM USO</span>`;
+                    } else {
+                        buttonHTML = `<button onclick="equipShopItem('${item.id}')" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-xs font-bold rounded-full">EQUIPAR</button>`;
+                    }
+                } else {
+                    buttonHTML = `<button onclick="buyShopItem('${item.id}')" class="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-full flex items-center gap-1">
+                        <i class="fas fa-coins text-[10px]"></i> ${item.price}
+                    </button>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center" style="background-color: ${item.hex || item.rim}"></div>
+                        <div>
+                            <p class="font-bold text-sm text-white">${item.name}</p>
+                        </div>
+                    </div>
+                    <div>${buttonHTML}</div>
+                `;
+
+                container.appendChild(card);
+            });
+
+            renderShopPreview();
+        }
+
+        function renderShopPreview() {
+            const shopCanvas = document.getElementById('shopCarCanvas');
+            const shopCtx = shopCanvas.getContext('2d');
+            shopCtx.clearRect(0, 0, shopCanvas.width, shopCanvas.height);
+            drawCar(shopCtx, 28, 12, 44, 76, selectedColor, selectedWheel);
+
+            document.getElementById('shop-item-name').innerText = `${selectedColor.name} + ${selectedWheel.name}`;
+        }
+
+        function renderMenuPreview() {
+            const menuCanvas = document.getElementById('menuCarCanvas');
+            if (!menuCanvas) return;
+            const menuCtx = menuCanvas.getContext('2d');
+            menuCtx.clearRect(0, 0, menuCanvas.width, menuCanvas.height);
+            drawCar(menuCtx, 38, 22, 44, 76, selectedColor, selectedWheel);
+        }
+
+        window.equipShopItem = function(id) {
+            if (activeShopTab === 'colors') {
+                const color = CAR_COLORS.find(c => c.id === id);
+                if (color) selectedColor = color;
+            } else {
+                const wheel = CAR_WHEELS.find(w => w.id === id);
+                if (wheel) selectedWheel = wheel;
+            }
+            saveData();
+            renderShopItems();
+            renderMenuPreview();
+        };
+
+        window.buyShopItem = function(id) {
+            const list = activeShopTab === 'colors' ? CAR_COLORS : CAR_WHEELS;
+            const item = list.find(i => i.id === id);
+
+            if (item && totalCoins >= item.price) {
+                totalCoins -= item.price;
+                item.unlocked = true;
+                if (activeShopTab === 'colors') selectedColor = item;
+                else selectedWheel = item;
+
+                sound.playWin();
+                saveData();
+                renderShopItems();
+                renderMenuPreview();
+            }
+        };
+
+        /* --- CONTROLS & EVENT LISTENERS --- */
+
+        function setupControls() {
+            // Keyboard controls
+            window.addEventListener('keydown', (e) => {
+                sound.init();
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                    keys.left = true;
+                }
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                    keys.right = true;
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                    keys.left = false;
+                }
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                    keys.right = false;
+                }
+            });
+
+            // Mobile Touch Buttons
+            const btnLeft = document.getElementById('btn-left');
+            const btnRight = document.getElementById('btn-right');
+
+            const handleTouchStart = (dir) => (e) => {
+                e.preventDefault();
+                sound.init();
+                if (dir === 'left') keys.left = true;
+                if (dir === 'right') keys.right = true;
+            };
+
+            const handleTouchEnd = (dir) => (e) => {
+                e.preventDefault();
+                if (dir === 'left') keys.left = false;
+                if (dir === 'right') keys.right = false;
+            };
+
+            btnLeft.addEventListener('touchstart', handleTouchStart('left'));
+            btnLeft.addEventListener('touchend', handleTouchEnd('left'));
+            btnLeft.addEventListener('mousedown', handleTouchStart('left'));
+            btnLeft.addEventListener('mouseup', handleTouchEnd('left'));
+
+            btnRight.addEventListener('touchstart', handleTouchStart('right'));
+            btnRight.addEventListener('touchend', handleTouchEnd('right'));
+            btnRight.addEventListener('mousedown', handleTouchStart('right'));
+            btnRight.addEventListener('mouseup', handleTouchEnd('right'));
+
+            // UI Buttons
+            document.getElementById('btn-play').addEventListener('click', () => {
+                sound.init();
+                startNewGame();
+            });
+
+            document.getElementById('btn-shop').addEventListener('click', () => {
+                sound.init();
+                gameState = 'SHOP';
+                hideAllScreens();
+                document.getElementById('screen-shop').classList.remove('hidden');
+                renderShopItems();
+            });
+
+            document.getElementById('btn-back-shop').addEventListener('click', () => {
+                gameState = 'START';
+                hideAllScreens();
+                document.getElementById('screen-start').classList.remove('hidden');
+            });
+
+            document.getElementById('tab-colors').addEventListener('click', () => {
+                activeShopTab = 'colors';
+                document.getElementById('tab-colors').className = 'flex-1 py-1.5 font-bold text-sm text-yellow-400 border-b-2 border-yellow-400';
+                document.getElementById('tab-wheels').className = 'flex-1 py-1.5 font-bold text-sm text-gray-400 border-b-2 border-transparent';
+                renderShopItems();
+            });
+
+            document.getElementById('tab-wheels').addEventListener('click', () => {
+                activeShopTab = 'wheels';
+                document.getElementById('tab-wheels').className = 'flex-1 py-1.5 font-bold text-sm text-yellow-400 border-b-2 border-yellow-400';
+                document.getElementById('tab-colors').className = 'flex-1 py-1.5 font-bold text-sm text-gray-400 border-b-2 border-transparent';
+                renderShopItems();
+            });
+
+            document.getElementById('btn-next-level').addEventListener('click', () => {
+                sound.init();
+                if (currentLevelIndex + 1 < LEVEL_CONFIGS.length) {
+                    startLevel(currentLevelIndex + 1);
+                } else {
+                    // Victory All Levels Completed
+                    gameState = 'VICTORY';
+                    hideAllScreens();
+                    document.getElementById('screen-victory').classList.remove('hidden');
+                }
+            });
+
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                sound.init();
+                startLevel(currentLevelIndex);
+            });
+
+            document.getElementById('btn-menu-gameover').addEventListener('click', () => {
+                gameState = 'START';
+                hideAllScreens();
+                document.getElementById('screen-start').classList.remove('hidden');
+            });
+
+            document.getElementById('btn-victory-restart').addEventListener('click', () => {
+                sound.init();
+                startNewGame();
+            });
+
+            // Audio Toggle Button
+            document.getElementById('btn-audio-toggle').addEventListener('click', () => {
+                sound.enabled = !sound.enabled;
+                const icon = document.getElementById('audio-icon');
+                const text = document.getElementById('audio-text');
+                if (sound.enabled) {
+                    icon.className = 'fas fa-volume-up';
+                    text.innerText = 'Som: Ligado';
+                } else {
+                    icon.className = 'fas fa-volume-mute';
+                    text.innerText = 'Som: Desligado';
+                }
+            });
+        }
+
+        /* --- INITIALIZATION --- */
+        window.onload = function() {
+            loadSaveData();
+            resizeCanvas();
+            initFireflies();
+            setupControls();
+            renderMenuPreview();
+
+            // Start Animation Frame loop
+            requestAnimationFrame(render);
+        };
+    </script>
+</body>
+</html>
